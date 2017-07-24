@@ -1,0 +1,37 @@
+<?xml version="1.0" ?>
+<testsuite errors="0" failures="0" name="test_WelcomePage.test_WelcomePage-20170721213413" tests="1" time="0.786">
+	<testcase classname="test_WelcomePage.test_WelcomePage" name="testWelcomeMessage" time="0.786"/>
+	<system-out>
+<![CDATA[
+
+==============================================
+Start test test_WelcomePage.test_WelcomePage.testWelcomeMessage
+----------------------------------------------
+step delay = 0.0
+environment=None
+default_wait=10
+
+No cookie specified
+Opening relative URL 'http:/52.72.139.105/' (Automatically handle unexpected alerts)
+Set default window with: 800
+
+No cookie specified
+Opening relative URL 'http:/52.72.139.105/' (Automatically handle unexpected alerts)
+Waiting a maximum of 10s for element[css selector=h1]
+Waiting a maximum of 10s for text Hello World in element[css selector=h1]
+Logging results to /project/target/browser-test-results/results.csv
+
+------ BROWSER-LOG ------
+
+{u'timestamp': 1500672855545, u'message': u"Error: Bootstrap's JavaScript requires jQuery\n  (anonymous function) (http://52.72.139.105/webjars/bootstrap/3.3.7/js/bootstrap.min.js:6)", u'level': u'WARNING'}
+
+------------------------=
+
+
+Finished test test_WelcomePage.test_WelcomePage.testWelcomeMessage
+----------------------------------------------
+
+]]>	</system-out>
+	<system-err>
+<![CDATA[]]>	</system-err>
+</testsuite>
