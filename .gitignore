@@ -1,2 +1,3 @@
 target
 /webapp/target
+/webapp/src/test/python/TEST-*.xml
