@@ -1,0 +1,12 @@
+stack:
+    name: security
+    system-name: USCIS-HW
+    master-template: main.yml
+    parameters:
+        System: {{env:SYSTEM_NAME}}
+        Region: {{env:AWS_REGION}}
+        PrivilegedCIDR1: {{input:PrivilegedCIDR1}}
+        PrivilegedCIDR2: {{input:PrivilegedCIDR2}}
+        PrivilegedCIDR3: {{input:PrivilegedCIDR3}}
+        PrivilegedCIDR4: {{input:PrivilegedCIDR4}}
+        PrivilegedCIDR5: {{input:PrivilegedCIDR5}}

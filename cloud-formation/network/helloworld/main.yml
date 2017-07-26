@@ -1,0 +1,60 @@
+AWSTemplateFormatVersion : '2010-09-09'
+Description: Hello World application network infrastructure for the DevSecOps example
+Parameters: 
+  System: 
+    Type: String
+    Default: "DSO"
+  Region: 
+    Type: String
+    Default: "us-east-1"
+  Environment: 
+    Type: String
+  SharedEnvironment:
+    Type: String
+    Default: "shared"
+  ApplicationCIDRBlock:
+    Type: String
+Resources:
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    Properties:
+      LogGroupName: !Sub "${System}-${Environment}-helloworld"
+      RetentionInDays: 14
+  SubnetAZ1:
+    Type: AWS::EC2::Subnet
+    DeletionPolicy: Delete
+    Properties:
+      CidrBlock: !Ref ApplicationCIDRBlock
+      VpcId:
+        Fn::ImportValue:
+          !Sub "${System}-${SharedEnvironment}-VPC"
+      AvailabilityZone:
+        Fn::ImportValue:
+          !Sub "${System}-${SharedEnvironment}-AZ1"
+      Tags:
+        - Key: System
+          Value: !Ref System
+        - Key: Name
+          Value: !Sub "${System}-${Environment}-helloworld"
+  SubnetAZ1RouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DeletionPolicy: Delete
+    Properties:
+      RouteTableId:
+        Fn::ImportValue:
+          !Sub "${System}-${SharedEnvironment}-PublicRouteTable"
+      SubnetId: !Ref SubnetAZ1
+Outputs:
+  SubnetAZ1:
+    Value: !Ref SubnetAZ1
+    Export: 
+      Name: !Sub "${System}-${Environment}-helloworld-SubnetAZ1"
+  CIDRBlock:
+    Value: !Ref ApplicationCIDRBlock
+    Export: 
+      Name: !Sub "${System}-${Environment}-helloworld-CIDRBlock"
+  AZ1:
+    Value: !GetAtt SubnetAZ1.AvailabilityZone
+    Export: 
+      Name: !Sub "${System}-${Environment}-helloworld-AZ1"

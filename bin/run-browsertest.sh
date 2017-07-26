@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 
+WEBSITE_URL="$1"
+
+if [ "${WEBSITE_URL}" == "" ]; then
+    WEBSITE_URL="http:\/52.72.139.105"
+fi
+
+
 PYTHON_IMAGE="killercentury/python-phantomjs"
 
 function get_parent {
@@ -18,14 +25,14 @@ WORKSPACE="\/project\/src\/test"
 RESULTS_DIR="\/project\/target\/browser-test-results"
 
 ARGS=()
-ARGS+=("--base-url=http:\/52.72.139.105")
+ARGS+=("--base-url=${WEBSITE_URL}")
 ARGS+=("--webdriver-class=PhantomJS")
 ARGS+=("--reuse-driver")
 ARGS+=("--default-wait=10")
 ARGS+=("--verbose")
 ARGS+=("--default-window-width=800")
 ARGS+=("--results-file=${RESULTS_DIR}/results.csv")
-ARGS+=("--test-reports-dir=${WORKSPACE}/python")
+ARGS+=("--test-reports-dir=${RESULTS_DIR}")
 
 CMD="export PYTHONPATH=${WORKSPACE}\/resources\/lib\/python2.6\/site-packages:${WORKSPACE}\/python"
 CMD="${CMD};mkdir -p ${RESULTS_DIR}"

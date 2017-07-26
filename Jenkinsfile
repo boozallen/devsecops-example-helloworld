@@ -15,37 +15,44 @@ pipeline {
             steps { initialize() }
         }
         stage("Build App") {
-            agent { docker "maven:3.5.0-jdk-8-alpine"}
+            agent any 
             steps { buildApp() }
+        }
+        stage("Run App Security Scan") {
+            agent any 
+            steps {  runSecurityTest() }
         }
         stage("Build and Register Image") {
             agent any
-            steps { buildAndRegisterDockerImage()  }
+            steps { buildAndRegisterDockerImage() }
         }
         stage("Deploy Image to Dev") {
             agent any
-            steps { deployImage(env.ENVIRONMENT)  }
+            steps { deployImage(env.ENVIRONMENT) }
         }
-        stage("Browser Test in Dev") {
+        stage("Test App in Dev") {
             agent any
-            steps { runBrowserTest(env.ENVIRONMENT)  }
-        }
-        // Do not deploy non-master branches to subsequent environments
-        // These branches must be merged via a PR to the master branch first
-        stage("Proceed to test?") {
-            agent none
-            when { branch 'master' } 
-            steps { proceedTo('test') }
+            steps { runBrowserTest(env.ENVIRONMENT) }
         }
         stage("Deploy Image to Test") {
             agent any
             when { branch 'master' } 
-            steps { deployImage('test')  }
+            steps { deployImage('test') }
         }
-        stage("Browser Test in Test") {
+        stage("Test App in Test") {
             agent any
             when { branch 'master' } 
-            steps { runBrowserTest('test')  }
+            steps { runBrowserTest('test') }
+        }
+        stage("Proceed to prod?") {
+            agent none
+            when { branch 'master' } 
+            steps { proceedTo('prod') }
+        }
+        stage("Deploy Image to Prod") {
+            agent any
+            when { branch 'master' }
+            steps { deployImage('prod') }
         }
     }
 }
@@ -57,11 +64,13 @@ pipeline {
 
 def initialize() {
     env.SYSTEM_NAME = "DSO"
-    env.IMAGE_NAME = "hello-world:${env.BUILD_ID}"
     env.AWS_REGION = "us-east-1"
     env.REGISTRY_URL = "https://912661153448.dkr.ecr.us-east-1.amazonaws.com"
     env.MAX_ENVIRONMENTNAME_LENGTH = 32
     setEnvironment()
+    env.IMAGE_NAME = "hello-world:" + 
+        ((env.BRANCH_NAME == "master") ? "" : "${env.ENVIRONMENT}-") + 
+        env.BUILD_ID
     showEnvironmentVariables()
 }
 
@@ -86,7 +95,7 @@ def setEnvironment() {
         }
         // echo "limit length"
         branchName = branchName.take(env.MAX_ENVIRONMENTNAME_LENGTH as Integer)
-        environment += branchName
+        environment += "-" + branchName
     }
     echo "Using environment: ${environment}"
     env.ENVIRONMENT = environment
@@ -102,9 +111,11 @@ def showEnvironmentVariables() {
 // ================================================================================================
 
 def buildApp() {
-    sh "(cd ./webapp; mvn clean install)"
-    archiveArtifacts './webapp/target/spring-boot-web-jsp-1.0.war'
-    step([$class: 'JUnitResultArchiver', testResults: '**/target/surefire-reports/TEST-*.xml'] )
+     dir("webapp") {
+        withDockerContainer("maven:3.5.0-jdk-8-alpine") { sh "mvn clean install"}
+        archiveArtifacts '**/target/spring-boot-web-jsp-1.0.war'
+        step([$class: 'JUnitResultArchiver', testResults: '**/target/surefire-reports/TEST-*.xml'] )
+     }
 }
 
 def buildAndRegisterDockerImage() {
@@ -135,7 +146,6 @@ def dockerRegistryLogin() {
 // Deploy steps
 // ================================================================================================
 
-
 def deployImage(environment) {
     def context = getContext(environment)
     def ip = findIp(environment)
@@ -159,32 +169,45 @@ def getContext(environment) {
 // Test steps
 // ================================================================================================
 
+def runSecurityTest() {
+    def sonarReportDir = "target/sonar"
+    def jenkinsIP = findJenkinsIp()
+    dir("webapp") {
+        withDockerContainer("maven:3.5.0-jdk-8-alpine")  {
+            sh "mvn sonar:sonar -Dsonar.host.url=http://${jenkinsIP}:9000"
+        }
+        sh "ls -al ${sonarReportDir}"
+        //archiveArtifacts "**/${sonarReportDir}/*.txt"
+     }
+}
+
 def runBrowserTest(environment) {
     def ip = findIp(environment)
-    def workspace = "./webapp/src/test"
-    def resultsDir = "./webapp/target/browser-test-results/${environment}"
+    def workDir = "src/test"
+    def testsDir="${workDir}/python"
+    def resultsDir = "target/browser-test-results/${environment}"
     def resultsPrefix = "${resultsDir}/results-${env.BUILD_ID}"
-    def sitePackagesDir="${workspace}/resources/lib/python2.6/site-packages"
-    def unitTestDir="${workspace}/python"
+    def sitePackagesDir="${workDir}/resources/lib/python2.6/site-packages"
     def script = """
-        ls -al
-        export PYTHONPATH="${sitePackagesDir}:${unitTestDir}"
+        export PYTHONPATH="${sitePackagesDir}:${testsDir}"
         mkdir -p ${resultsDir}
-        /usr/bin/python -B -u ./${workspace}/python/helloworld/test_suite.py \
+        /usr/bin/python -B -u ./${testsDir}/helloworld/test_suite.py \
             "--base-url=http://${ip}" \
             --webdriver-class=PhantomJS\
             --reuse-driver \
-            --default-wait=30 \
+            --environment ${environment} \
+            --default-wait=15 \
             --verbose \
             --default-window-width=800 \
-            --test-reports-dir=${workspace}/python \
+            --test-reports-dir=${resultsDir} \
             --results-file=${resultsPrefix}.csv
 """
-    withDockerContainer("killercentury/python-phantomjs") { sh "${script}" }
-    step([$class: 'JUnitResultArchiver', testResults: "**/webapp/src/test/python/TEST-*.xml"])
-    sh "ls -lhr ${resultsDir}"
-    archiveArtifacts '${resultsPrefix}.csv'
-    archiveArtifacts '${resultsPrefix}.html'
+    dir("webapp") {
+        withDockerContainer("killercentury/python-phantomjs") { sh "${script}" }
+        step([$class: 'JUnitResultArchiver', testResults: "**/${resultsDir}/TEST-*.xml"])
+        sh "ls -lhr ${resultsDir}"
+        archiveArtifacts "**/${resultsPrefix}.*"
+    }
 }
 
 // ================================================================================================
@@ -194,10 +217,14 @@ def runBrowserTest(environment) {
 def proceedTo(environment) {
     def description = "Choose 'yes' if you want to deploy to this build to " + 
         "the ${environment} environment"
+    def proceed = 'no'
     timeout(time: 4, unit: 'HOURS') {
-        env.PROCEED_TO_TEST = input message: "Do you want to deploy the changes to ${environment}?",
+        proceed = input message: "Do you want to deploy the changes to ${environment}?",
             parameters: [choice(name: "Deploy to ${environment}", choices: "no\nyes",
                 description: description)]
+        if (proceed == 'no') {
+            error("User stopped pipeline execution")
+        }
     }
 }
 
@@ -216,3 +243,45 @@ def findIp(environment) {
     echo "ip=[${ip}]"
     return ip
 }
+
+def findJenkinsIp() {
+    def ip = ""
+    withDockerContainer("garland/aws-cli-docker") {
+       ip = sh(returnStdout: true,
+            script: """aws ec2 describe-instances \
+                --filters "Name=instance-state-name,Values=running" \
+                "Name=tag:Name,Values=${env.SYSTEM_NAME}-shared-jenkins" \
+                --query "Reservations[].Instances[].{Ip:PrivateIpAddress}" \
+                --output text --region ${env.AWS_REGION} | tr -d '\n'
+"""
+        )
+    }
+    echo "ip=[${ip}]"
+    return ip
+}
+
+// def startSonarQube() {
+//     if (!isSonarQubeRunning()) {
+//         echo "Restarting SonarQube"
+//         stopSonarQube()
+//         sh "docker run -d --name ${env.SONARQUBE_IMAGE_NAME} -p 9000:9000 -p 9092:9092 sonarqube"
+//     } else {
+//         echo "SonarQube already running"
+//     }
+// }
+
+// def stopSonarQube() {
+//     if (isSonarQubeRunning()) {
+//         sh "docker stop ${env.SONARQUBE_IMAGE_NAME}"
+//         sh "docker rm ${env.SONARQUBE_IMAGE_NAME}"
+//     }
+// }
+
+// def isSonarQubeRunning() {
+//     def imageID = sh(returnStdout: true, script: """
+//         docker ps | grep '${env.SONARQUBE_IMAGE_NAME}' | awk -F" " '{print \$1;}' | tr -d '\n'
+// """
+//     )
+//     echo "SonarQube ImageID=${imageID}"
+//     return (imageID?.trim())
+// }

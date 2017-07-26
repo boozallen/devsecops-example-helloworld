@@ -1,0 +1,424 @@
+AWSTemplateFormatVersion : '2010-09-09'
+Description: Security Infrastructure for the USCIS Hello World application
+Parameters: 
+  System: 
+    Type: String
+    Description: "The name of the system to be used as a part of the prefix for all resource names"
+    Default: DSO
+  Environment: 
+    Type: String
+    Description: "The name of the environment to be used as a part of the prefix for all resource names"
+    Default: "shared"
+  Region: 
+    Type: String
+    Description: "The region in which the Downloads resources will be provisioned"
+    Default: us-east-1
+  ProvisioningBucket:
+    Type: String
+    Description: "Name of the bucket used to provision the environment"
+  ProvisioningBucketPath:
+    Type: String
+    Description: "Path in the bucket used to find files for provisioning the environment"
+    Default: "cloud-formation"
+  VPCCIDRBlock: 
+    Type: String
+    Default: "172.27.0.0/16"
+  PrivilegedCIDR1:
+    Type: String
+    Default: ""
+  PrivilegedCIDR2:
+    Type: String
+    Default: ""
+  PrivilegedCIDR3:
+    Type: String
+    Default: ""
+  PrivilegedCIDR4:
+    Type: String
+    Default: ""
+  PrivilegedCIDR5:
+    Type: String
+    Default: ""
+  ImageName:
+    Type: String
+    Default: "hello-world"
+Conditions:
+  HasPrivilegedAccessCIDR1: !Not [!Equals [ !Ref PrivilegedCIDR1, ""]]
+  HasPrivilegedAccessCIDR2: !Not [!Equals [ !Ref PrivilegedCIDR2, ""]]
+  HasPrivilegedAccessCIDR3: !Not [!Equals [ !Ref PrivilegedCIDR3, ""]]
+  HasPrivilegedAccessCIDR4: !Not [!Equals [ !Ref PrivilegedCIDR4, ""]]
+  HasPrivilegedAccessCIDR5: !Not [!Equals [ !Ref PrivilegedCIDR5, ""]]
+Resources:
+  ApplicationSubnetNACL:
+    Type: "AWS::EC2::SubnetNetworkAclAssociation"
+    Properties:
+      SubnetId:
+        Fn::ImportValue:
+          !Sub "${System}-${Environment}-jenkins-SubnetAZ1"
+      NetworkAclId: !Ref ApplicationNACL
+  ApplicationNACL:
+    Type: AWS::EC2::NetworkAcl
+    DeletionPolicy: Delete
+    Properties:
+      VpcId:
+        Fn::ImportValue:
+          !Sub "${System}-${Environment}-VPC"
+      Tags:
+        - Key: System
+          Value: !Ref System
+        - Key: Name
+          Value: !Sub "${System}-${Environment}-jenkins"
+  ApplicationPrivilegedAccess1:
+    Type: AWS::EC2::NetworkAclEntry
+    Condition: HasPrivilegedAccessCIDR1
+    DeletionPolicy: Delete
+    Properties:
+      CidrBlock: !Ref PrivilegedCIDR1
+      Protocol: -1
+      RuleAction: allow
+      RuleNumber: 1
+      NetworkAclId: !Ref ApplicationNACL
+  ApplicationPrivilegedAccess2:
+    Type: AWS::EC2::NetworkAclEntry
+    Condition: HasPrivilegedAccessCIDR2
+    DeletionPolicy: Delete
+    Properties:
+      CidrBlock: !Ref PrivilegedCIDR2
+      Protocol: -1
+      RuleAction: allow
+      RuleNumber: 2
+      NetworkAclId: !Ref ApplicationNACL
+  ApplicationPrivilegedAccess3:
+    Type: AWS::EC2::NetworkAclEntry
+    Condition: HasPrivilegedAccessCIDR3
+    DeletionPolicy: Delete
+    Properties:
+      CidrBlock: !Ref PrivilegedCIDR3
+      Protocol: -1
+      RuleAction: allow
+      RuleNumber: 3
+      NetworkAclId: !Ref ApplicationNACL
+  ApplicationPrivilegedAccess4:
+    Type: AWS::EC2::NetworkAclEntry
+    Condition: HasPrivilegedAccessCIDR4
+    DeletionPolicy: Delete
+    Properties:
+      CidrBlock: !Ref PrivilegedCIDR3
+      Protocol: -1
+      RuleAction: allow
+      RuleNumber: 4
+      NetworkAclId: !Ref ApplicationNACL
+  ApplicationPrivilegedAccess5:
+    Type: AWS::EC2::NetworkAclEntry
+    Condition: HasPrivilegedAccessCIDR5
+    DeletionPolicy: Delete
+    Properties:
+      CidrBlock: !Ref PrivilegedCIDR3
+      Protocol: -1
+      RuleAction: allow
+      RuleNumber: 5
+      NetworkAclId: !Ref ApplicationNACL
+  ApplicationNACLInHttp:
+    Type: AWS::EC2::NetworkAclEntry
+    DeletionPolicy: Delete
+    Properties:
+      CidrBlock: "0.0.0.0/0"
+      Protocol: 6
+      PortRange:
+        From: 80
+        To: 80
+      RuleAction: allow
+      RuleNumber: 10
+      NetworkAclId: !Ref ApplicationNACL
+  ApplicationNACLInHttps:
+    Type: AWS::EC2::NetworkAclEntry
+    DeletionPolicy: Delete
+    Properties:
+      CidrBlock: "0.0.0.0/0"
+      Protocol: 6
+      PortRange:
+        From: 443
+        To: 443
+      RuleAction: allow
+      RuleNumber: 11
+      NetworkAclId: !Ref ApplicationNACL
+  ApplicationNACLInNTP:
+    Type: AWS::EC2::NetworkAclEntry
+    DeletionPolicy: Delete
+    Properties:
+      CidrBlock: "0.0.0.0/0"
+      Protocol: 17
+      PortRange:
+        From: 123
+        To: 123
+      RuleAction: allow
+      RuleNumber: 20
+      NetworkAclId: !Ref ApplicationNACL
+  ApplicationNACLInEphemeral:
+    Type: AWS::EC2::NetworkAclEntry
+    DeletionPolicy: Delete
+    Properties:
+      CidrBlock: "0.0.0.0/0"
+      Protocol: 6
+      PortRange:
+        From: 1025
+        To: 65535
+      RuleAction: allow
+      RuleNumber: 100
+      NetworkAclId: !Ref ApplicationNACL
+  ApplicationInLocalAccess:
+    Type: AWS::EC2::NetworkAclEntry
+    DeletionPolicy: Delete
+    Properties:
+      CidrBlock: !Ref VPCCIDRBlock
+      Protocol: -1
+      RuleAction: allow
+      RuleNumber: 1000
+      NetworkAclId: !Ref ApplicationNACL
+  ApplicationNACLOutHttp:
+    Type: AWS::EC2::NetworkAclEntry
+    DeletionPolicy: Delete
+    Properties:
+      CidrBlock: "0.0.0.0/0"
+      Egress: true
+      Protocol: 6
+      PortRange:
+        From: 80
+        To: 80
+      RuleAction: allow
+      RuleNumber: 10
+      NetworkAclId: !Ref ApplicationNACL
+  ApplicationNACLOutHttps:
+    Type: AWS::EC2::NetworkAclEntry
+    DeletionPolicy: Delete
+    Properties:
+      CidrBlock: "0.0.0.0/0"
+      Egress: true
+      Protocol: 6
+      PortRange:
+        From: 443
+        To: 443
+      RuleAction: allow
+      RuleNumber: 11
+      NetworkAclId: !Ref ApplicationNACL
+  ApplicationNACLOutNtp:
+    Type: AWS::EC2::NetworkAclEntry
+    DeletionPolicy: Delete
+    Properties:
+      CidrBlock: "0.0.0.0/0"
+      Egress: true
+      Protocol: 17
+      PortRange:
+        From: 123
+        To: 123
+      RuleAction: allow
+      RuleNumber: 20
+      NetworkAclId: !Ref ApplicationNACL
+  ApplicationNACLOutEphemeral:
+    Type: AWS::EC2::NetworkAclEntry
+    DeletionPolicy: Delete
+    Properties:
+      CidrBlock: "0.0.0.0/0"
+      Egress: true
+      Protocol: 6
+      PortRange:
+        From: 1025
+        To: 65535
+      RuleAction: allow
+      RuleNumber: 100
+      NetworkAclId: !Ref ApplicationNACL
+  ApplicationOutLocalAccess:
+    Type: AWS::EC2::NetworkAclEntry
+    DeletionPolicy: Delete
+    Properties:
+      CidrBlock: !Ref VPCCIDRBlock
+      Egress: true
+      Protocol: -1
+      RuleAction: allow
+      RuleNumber: 1000
+      NetworkAclId: !Ref ApplicationNACL
+  Role: 
+    Type: AWS::IAM::Role
+    DeletionPolicy: Delete
+    Properties:
+      RoleName: !Sub "${System}-${Environment}-jenkins"
+      AssumeRolePolicyDocument:
+        Version : 2012-10-17
+        Statement: 
+          - Effect: Allow
+            Principal: 
+              Service:
+                - "ec2.amazonaws.com"
+            Action: 
+              - "sts:AssumeRole"
+      Path: !Sub "/${System}/${Environment}/jenkins/"
+      ManagedPolicyArns:
+        - !Ref ProvisioningPolicy
+        - !Ref LoggingPolicy
+        - !Ref DescribeResourcesPolicy
+        - !Ref PushImagePolicy
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    DeletionPolicy: Delete
+    DependsOn:
+      - Role
+    Properties:
+      InstanceProfileName: !Sub "${System}-${Environment}-jenkins"
+      Path: !Sub "/${System}/${Environment}/jenkins/"
+      Roles:
+        - !Sub "${System}-${Environment}-jenkins"
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    DeletionPolicy: Delete
+    Properties:
+      GroupDescription: "Jenkins Application Security Group"
+      GroupName: !Sub "${System}-${Environment}-jenkins"
+      VpcId: 
+        Fn::ImportValue:
+          !Sub "${System}-${Environment}-VPC"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: "0.0.0.0/0"
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: "0.0.0.0/0"
+        - IpProtocol: tcp
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: 
+            Fn::ImportValue:
+              !Sub "${System}-${Environment}-jenkins-CIDRBlock"
+        - IpProtocol: tcp
+          FromPort: 9000
+          ToPort: 9000
+          CidrIp: "0.0.0.0/0"
+        - IpProtocol: tcp
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: !Ref VPCCIDRBlock
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: "0.0.0.0/0"
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: "0.0.0.0/0"
+        - IpProtocol: udp
+          FromPort: 123
+          ToPort: 123
+          CidrIp: "0.0.0.0/0"
+        - IpProtocol: tcp
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: 
+            Fn::ImportValue:
+              !Sub "${System}-${Environment}-jenkins-CIDRBlock"
+        - IpProtocol: tcp
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: !Ref VPCCIDRBlock
+      Tags:
+        - Key: System
+          Value: !Ref System
+        - Key: Name
+          Value: !Sub "${System}-${Environment}-jenkins"
+  ProvisioningPolicy:
+    Type: "AWS::IAM::ManagedPolicy"
+    DeletionPolicy: Delete
+    Properties: 
+      Path: !Sub "/${System}/${Environment}/jenkins/"
+      PolicyDocument: 
+        Version: "2012-10-17"
+        Statement: 
+          - Sid: "ListBucket"
+            Effect: "Allow"
+            Action:
+              - "s3:ListBucket"
+              - "s3:GetBucketAcl"
+            Resource: 
+              - !Sub "arn:aws:s3:::${ProvisioningBucket}"
+          - Sid: "GetInitializerObjects"
+            Effect: "Allow"
+            Action: 
+              - "s3:GetObject"
+              - "s3:GetObjectAcl"
+              - "s3:GetObjectTagging"
+            Resource: 
+              - !Sub "arn:aws:s3:::${ProvisioningBucket}/cloud-formation/${System}/${Environment}/jenkins-app/*" 
+          - Sid: "GetApplicationObjects"
+            Effect: "Allow"
+            Action: 
+              - "s3:GetObject"
+            Resource: 
+              - !Sub "arn:aws:s3:::${ProvisioningBucket}/applications/*"
+  LoggingPolicy:
+    Type: "AWS::IAM::ManagedPolicy"
+    DeletionPolicy: Delete
+    Properties: 
+      Path: !Sub "/${System}/${Environment}/jenkins/"
+      PolicyDocument: 
+        Version: 2012-10-17
+        Statement: 
+          - Sid: "PublishLogInformation"
+            Effect: Allow
+            Action:
+              - "logs:CreateLogStream"
+              - "logs:PutLogEvents"
+              - "logs:DescribeLogStreams"
+            Resource:
+              - !Sub "arn:aws:logs:${Region}:${AWS::AccountId}:log-group:${System}-${Environment}:log-stream:*"
+  PushImagePolicy:
+    Type: "AWS::IAM::ManagedPolicy"
+    DeletionPolicy: Delete
+    Properties: 
+      Path: !Sub "/${System}/${Environment}/helloworld/"
+      PolicyDocument: 
+        Version: 2012-10-17
+        Statement: 
+          - Sid: "AllowPullImage"
+            Effect: Allow
+            Action:
+              - "ecr:GetDownloadUrlForLayer"
+              - "ecr:PutImage"
+              - "ecr:InitiateLayerUpload"
+              - "ecr:UploadLayerPart"
+              - "ecr:CompleteLayerUpload"
+            Resource:
+              - !Sub "arn:aws:ecr:${Region}:${AWS::AccountId}:repository/${ImageName}"
+          - Sid: "AllowLogin"
+            Effect: Allow
+            Action:
+              - "ecr:GetAuthorizationToken"
+            Resource:
+              - "*"
+  DescribeResourcesPolicy:
+    Type: "AWS::IAM::ManagedPolicy"
+    DeletionPolicy: Delete
+    Properties: 
+      Path: !Sub "/${System}/${Environment}/helloworld/"
+      PolicyDocument: 
+        Version: 2012-10-17
+        Statement: 
+          - Sid: "AllowDescribeInstances"
+            Effect: Allow
+            Action:
+              - "ec2:DescribeInstances"
+            Resource:
+              - "*"
+Outputs:
+  Role:
+    Value: !Ref Role
+    Export:
+      Name: !Sub "${System}-${Environment}-jenkins-Role"
+  SecurityGroup:
+    Value: !Ref SecurityGroup
+    Export: 
+      Name: !Sub "${System}-${Environment}-jenkins-SecurityGroup"
+  InstanceProfile:
+    Value: !Ref InstanceProfile
+    Export: 
+      Name: !Sub "${System}-${Environment}-jenkins-InstanceProfile"

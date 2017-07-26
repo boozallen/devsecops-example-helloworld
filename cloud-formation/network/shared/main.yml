@@ -1,0 +1,81 @@
+AWSTemplateFormatVersion : '2010-09-09'
+Description: Shared network infrastructure for the DevSecOps example
+Parameters: 
+  System: 
+    Type: String
+    Default: "DSO"
+  Region: 
+    Type: String
+    Default: "us-east-1"
+  Environment:
+    Type: String
+    Default: "shared"
+  VPCCIDRBlock: 
+    Type: String
+    Default: "172.27.0.0/16"
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    DeletionPolicy: Delete
+    Properties:
+      CidrBlock: !Ref VPCCIDRBlock
+      InstanceTenancy: default
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
+      Tags:
+        - Key: System
+          Value: !Ref System
+        - Key: Environment
+          Value: "shared"
+        - Key: Name
+          Value: !Sub "${System}-${Environment}"
+  IGW:
+    Type: AWS::EC2::InternetGateway
+    DeletionPolicy: Delete
+    Properties:
+      Tags:
+        - Key: System
+          Value: !Ref System
+        - Key: Name
+          Value: !Sub "${System}-${Environment}"
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    DeletionPolicy: Delete
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref IGW
+  PublicRouteTable: 
+    Type: AWS::EC2::RouteTable
+    DeletionPolicy: Delete
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: System
+          Value: !Ref System
+        - Key: Name
+          Value: !Sub "${System}-${Environment}-public"
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DeletionPolicy: Delete
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      DestinationCidrBlock: "0.0.0.0/0"
+      RouteTableId: !Ref PublicRouteTable
+      GatewayId: !Ref IGW
+Outputs:
+  VPC:
+    Value: !Ref VPC
+    Export: 
+      Name: !Sub "${System}-${Environment}-VPC"
+  PublicRouteTable:
+    Value: !Ref PublicRouteTable
+    Export: 
+      Name: !Sub "${System}-${Environment}-PublicRouteTable"
+  AZ1:
+    Value: !Select ["1", "Fn::GetAZs": !Ref Region ]
+    Export: 
+      Name: !Sub "${System}-${Environment}-AZ1"
+  AZ2:
+    Value: !Select ["2", "Fn::GetAZs": !Ref Region ]
+    Export: 
+      Name: !Sub "${System}-${Environment}-AZ2"

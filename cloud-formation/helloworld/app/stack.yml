@@ -1,0 +1,12 @@
+stack:
+    name: helloworld-app
+    system-name: DSO
+    master-template: main.yml
+    parameters:
+        System: {{env:SYSTEM_NAME}}
+        Region: {{env:AWS_REGION:us-east-1}}
+        Environment: {{env:ENVIRONMENT}}
+        SecurityContext: {{env:SECURITY_CONTEXT}}
+        ProvisioningBucket: {{env:BUCKET_NAME}}
+    initializers:
+        - deploy-app.sh

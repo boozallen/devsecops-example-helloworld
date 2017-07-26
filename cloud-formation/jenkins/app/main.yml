@@ -9,11 +9,7 @@ Parameters:
     Default: "us-east-1"
   Environment: 
     Type: String
-  SharedEnvironment:
-    Type: String
     Default: "shared"
-  SecurityContext: 
-    Type: String
   ProvisioningBucket:
     Type: String
     Description: "Name of the bucket used to provision the environment"
@@ -33,6 +29,9 @@ Parameters:
     Default: 1200
     Description: >-
       The length of time that wait conditions inside this template wait for a completion signal
+  JenkinsDockerImage:
+    Type: String
+    Default: "jenkins"
 Resources:
   Instance:
     Type: AWS::EC2::Instance
@@ -42,10 +41,10 @@ Resources:
       SourceDestCheck: false
       IamInstanceProfile:
         Fn::ImportValue:
-          !Sub "${System}-${Environment}-helloworld-InstanceProfile"
+          !Sub "${System}-${Environment}-jenkins-InstanceProfile"
       ImageId: !Ref InstanceAMI
       InstanceType: !Ref InstanceType
-      KeyName: !Sub "${System}-${SecurityContext}-helloworld"
+      KeyName: !Sub "${System}-${Environment}-jenkins"
       Monitoring: true
       Tags:
         - Key: System
@@ -53,9 +52,9 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
         - Key: ServerType
-          Value: "helloworld"
+          Value: "jenkins"
         - Key: Name
-          Value: !Sub "${System}-${Environment}-helloworld"
+          Value: !Sub "${System}-${Environment}-jenkins"
       NetworkInterfaces:
         - AssociatePublicIpAddress: true
           DeleteOnTermination: true
@@ -63,12 +62,12 @@ Resources:
           DeviceIndex: 0
           SubnetId:
             Fn::ImportValue:
-              !Sub "${System}-${Environment}-helloworld-SubnetAZ1"
+              !Sub "${System}-${Environment}-jenkins-SubnetAZ1"
           GroupSet:
             - Fn::ImportValue:
-                !Sub "${System}-${SharedEnvironment}-ssh-securitygroup"
+                !Sub "${System}-${Environment}-ssh-securitygroup"
             - Fn::ImportValue:
-                !Sub "${System}-${Environment}-helloworld-SecurityGroup"
+                !Sub "${System}-${Environment}-jenkins-SecurityGroup"
       UserData: 
         Fn::Base64: !Sub |
           #!/bin/bash -ex
@@ -146,6 +145,7 @@ Resources:
               yum update -y
               yum install -y $EPEL_URL
               yum install -y dos2unix
+              yum install -y python-setuptools
               if is_installed "aws-cfn-bootstrap"; then
                   yum update -y aws-cfn-bootstrap
               else
@@ -170,7 +170,7 @@ Resources:
       AWS::CloudFormation::Authentication:
         S3AccessCredentials:
           type: "S3"
-          roleName: !Sub "${System}-${Environment}-helloworld"
+          roleName: !Sub "${System}-${Environment}-jenkins"
           buckets: 
             - !Ref ProvisioningBucket
       AWS::CloudFormation::Init: 
@@ -179,8 +179,7 @@ Resources:
             - "awslogs"
             - "cfn-hup"
             - "docker"
-            - "scripts"
-            - "helloworld"
+            - "jenkins"
         awslogs:
           files:
             /tmp/awslogs-agent-setup.py:
@@ -201,42 +200,42 @@ Resources:
 
                 [yum]
                 file = /var/log/yum.log
-                log_group_name = ${System}-${Environment}-helloworld
+                log_group_name = ${System}-${Environment}-jenkins
                 log_stream_name = yum.log
 
                 [messages]
                 file = /var/log/messages
-                log_group_name = ${System}-${Environment}-helloworld
+                log_group_name = ${System}-${Environment}-jenkins
                 log_stream_name = messages.log
                 
                 [cfn-hup]
                 file = /var/log/cfn-hup.log
-                log_group_name = ${System}-${Environment}-helloworld
+                log_group_name = ${System}-${Environment}-jenkins
                 log_stream_name = cfn-hup.log
 
                 [cfn-init]
                 file = /var/log/cfn-init.log
-                log_group_name = ${System}-${Environment}-helloworld
+                log_group_name = ${System}-${Environment}-jenkins
                 log_stream_name = cfn-init.log
 
                 [cfn-init-cmd]
                 file = /var/log/cfn-init-cmd.log
-                log_group_name = ${System}-${Environment}-helloworld
+                log_group_name = ${System}-${Environment}-jenkins
                 log_stream_name = cfn-init.log
 
                 [cloud-init]
                 file = /var/log/cloud-init.log
-                log_group_name = ${System}-${Environment}-helloworld
+                log_group_name = ${System}-${Environment}-jenkins
                 log_stream_name = cloud-init.log
 
                 [cloud-init-output]
                 file = /var/log/cloud-init-output.log
-                log_group_name = ${System}-${Environment}-helloworld
+                log_group_name = ${System}-${Environment}-jenkins
                 log_stream_name = cloud-init.log
 
                 [handler]
                 file = /var/log/handler.log
-                log_group_name = ${System}-${Environment}-helloworld
+                log_group_name = ${System}-${Environment}-jenkins
                 log_stream_name = handler.log
               group: "root"
               owner: "root"
@@ -296,28 +295,32 @@ Resources:
                   yum makecache fast
                   yum -y --enablerepo=rhui-REGION-rhel-server-extras install container-selinux
                   yum -y install docker-ce                  
+            1-setup-service:
+              command: !Sub |
                   chkconfig docker on
                   service docker start
-        scripts:
-          commands:
-            0-create-directory:
-              command: !Sub |
-                mkdir -p /opt/dso
-                chown root:root /opt/dso
-                chmod 755 /opt/dso
-        helloworld:
+        jenkins:
           files:
-            /opt/dso/deploy-app:
-              source: !Sub https://s3.amazonaws.com/${ProvisioningBucket}/${ProvisioningBucketPath}/deploy-app.sh
+            /etc/init.d/jenkins:
+              source: !Sub https://s3.amazonaws.com/${ProvisioningBucket}/${ProvisioningBucketPath}/${System}/${Environment}/jenkins-app/etc-init.d-jenkins.sh
               group: "root"
               owner: "root"
               mode: "000700"
           commands:
-            # Dummy app to verify the deployment
-            # Subsequently use /opt/dso/deploy-app <tag> <server> <credentials> to deploy
-            0-install-exampleimage:
+            0-setup-user:
               command: !Sub |
-                docker run -d -p 80:80 --name webserver kitematic/hello-world-nginx
+                  JENKINS_HOME="/var/jenkins_home"
+                  JENKINS_USER="ec2-user"
+                  mkdir -p ${!JENKINS_HOME}
+                  chown -R "${!JENKINS_USER}:${!JENKINS_USER}" "${!JENKINS_HOME}"
+                  usermod -a -G docker "${!JENKINS_USER}"
+            1-get-docker-image:
+              command: !Sub |
+                  docker pull "${JenkinsDockerImage}"
+            2-setup-service:
+              command: !Sub |
+                  chkconfig jenkins on
+                  service jenkins start
   InstanceReadyHandle: 
     Type: "AWS::CloudFormation::WaitConditionHandle"
   InstanceIsReady: 
@@ -326,8 +329,15 @@ Resources:
       Handle: !Ref "InstanceReadyHandle"
       Timeout: !Ref WaitTimeout
       Count: 1
+  # TODO: Replace with EC2 instance running Docker Registry image
+  #     See also: https://docs.docker.com/registry/
+  DockerRegistry:
+    Type: "AWS::ECR::Repository"
+    DeletionPolicy: Delete
+    Properties: 
+      RepositoryName: "hello-world"
 Outputs:
   PublicIp:
     Value: !GetAtt Instance.PublicIp
     Export: 
-      Name: !Sub "${System}-${Environment}-helloworld-PublicIp"
+      Name: !Sub "${System}-${Environment}-jenkins-PublicIp"

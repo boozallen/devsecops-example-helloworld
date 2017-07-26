@@ -1,13 +1,11 @@
 stack:
-    name: helloworld-app
+    name: jenkins-app
     system-name: DSO
     master-template: main.yml
     parameters:
         System: {{env:SYSTEM_NAME}}
         Region: {{env:AWS_REGION:us-east-1}}
-        Environment: {{env:ENVIRONMENT}}
-        SecurityContext: {{env:SECURITY_CONTEXT}}
+        Environment: {{env:ENVIRONMENT:shared}}
         ProvisioningBucket: {{env:BUCKET_NAME}}
-        ProvisioningBucketPath: {{env:STACK_PATH}}
     initializers:
-        - deploy-app.sh
+        - etc-init.d-jenkins.sh  

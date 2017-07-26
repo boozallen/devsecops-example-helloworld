@@ -1,0 +1,108 @@
+AWSTemplateFormatVersion : '2010-09-09'
+Description: Security infrastructure for the DevSecOps example
+Parameters: 
+  System: 
+    Type: String
+    Description: "The name of the system to be used as a part of the prefix for all resource names"
+    Default: DSO
+  Region: 
+    Type: String
+    Description: "The region in which the Downloads resources will be provisioned"
+    Default: us-east-1
+  Environment:
+    Type: String
+    Default: "shared"
+  PrivilegedCIDR1:
+    Type: String
+    Default: ""
+  PrivilegedCIDR2:
+    Type: String
+    Default: ""
+  PrivilegedCIDR3:
+    Type: String
+    Default: ""
+  PrivilegedCIDR4:
+    Type: String
+    Default: ""
+  PrivilegedCIDR5:
+    Type: String
+    Default: ""
+Conditions:
+  HasPrivilegedAccessCIDR1: !Not [!Equals [ !Ref PrivilegedCIDR1, ""]]
+  HasPrivilegedAccessCIDR2: !Not [!Equals [ !Ref PrivilegedCIDR2, ""]]
+  HasPrivilegedAccessCIDR3: !Not [!Equals [ !Ref PrivilegedCIDR3, ""]]
+  HasPrivilegedAccessCIDR4: !Not [!Equals [ !Ref PrivilegedCIDR4, ""]]
+  HasPrivilegedAccessCIDR5: !Not [!Equals [ !Ref PrivilegedCIDR5, ""]]
+Resources:
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    DeletionPolicy: Delete
+    Properties:
+      GroupDescription: >-
+        Specifies Privileged (SSH) Access to VPC.
+        This security group should be associated with any instance,
+        in order to provide centralized privileged access control based on source IPs.
+      GroupName: !Sub "${System}-${Environment}-ssh-access"
+      VpcId:
+        Fn::ImportValue:
+          !Sub "${System}-${Environment}-VPC"
+      Tags:
+        - Key: System
+          Value: !Ref System
+        - Key: Name
+          Value: !Sub "${System}-${Environment}-ssh-access"
+  SSHAccessIngress1:
+    Type: AWS::EC2::SecurityGroupIngress
+    DeletionPolicy: Delete
+    Condition: HasPrivilegedAccessCIDR1
+    Properties:
+      GroupId: !Ref SecurityGroup
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      CidrIp: !Ref PrivilegedCIDR1
+  SSHAccessIngress2:
+    Type: AWS::EC2::SecurityGroupIngress
+    DeletionPolicy: Delete
+    Condition: HasPrivilegedAccessCIDR2
+    Properties:
+      GroupId: !Ref SecurityGroup
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      CidrIp: !Ref PrivilegedCIDR2
+  SSHAccessIngress3:
+    Type: AWS::EC2::SecurityGroupIngress
+    DeletionPolicy: Delete
+    Condition: HasPrivilegedAccessCIDR3
+    Properties:
+      GroupId: !Ref SecurityGroup
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      CidrIp: !Ref PrivilegedCIDR3
+  SSHAccessIngress4:
+    Type: AWS::EC2::SecurityGroupIngress
+    DeletionPolicy: Delete
+    Condition: HasPrivilegedAccessCIDR4
+    Properties:
+      GroupId: !Ref SecurityGroup
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      CidrIp: !Ref PrivilegedCIDR4
+  SSHAccessIngress5:
+    Type: AWS::EC2::SecurityGroupIngress
+    DeletionPolicy: Delete
+    Condition: HasPrivilegedAccessCIDR5
+    Properties:
+      GroupId: !Ref SecurityGroup
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      CidrIp: !Ref PrivilegedCIDR5
+Outputs:
+  SecurityGroup:
+    Value: !Ref SecurityGroup
+    Export: 
+      Name: !Sub "${System}-${Environment}-ssh-securitygroup"

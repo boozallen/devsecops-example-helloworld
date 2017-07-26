@@ -1,0 +1,9 @@
+stack:
+    name: helloworld-network
+    system-name: DSO
+    master-template: main.yml
+    parameters:
+        System: {{env:SYSTEM_NAME}}
+        Region: {{env:AWS_REGION:us-east-1}}
+        Environment: {{env:ENVIRONMENT}}
+        ApplicationCIDRBlock: {{input:ApplicationCIDRBlock}}

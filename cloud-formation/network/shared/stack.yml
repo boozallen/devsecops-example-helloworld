@@ -1,0 +1,9 @@
+stack:
+    name: network
+    system-name: USCIS-HL
+    subsystem-name: shared
+    master-template: main.yml
+    parameters:
+        System: {{env:SYSTEM_NAME}}
+        Region: {{env:AWS_REGION:us-east-1}}
+        VPCCIDRBlock: {{input:VPCCIDRBlock}}

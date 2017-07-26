@@ -1,0 +1,59 @@
+AWSTemplateFormatVersion : '2010-09-09'
+Description: Jenkins network infrastructure for the DevSecOps example
+Parameters: 
+  System: 
+    Type: String
+    Default: "DSO"
+  Region: 
+    Type: String
+    Default: "us-east-1"
+  Environment: 
+    Type: String
+    Default: "shared"
+  JenkinsCIDRBlock:
+    Type: String
+    Default: "172.27.1.0/24"
+Resources:
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    Properties:
+      LogGroupName: !Sub "${System}-${Environment}-jenkins"
+      RetentionInDays: 14
+  SubnetAZ1:
+    Type: AWS::EC2::Subnet
+    DeletionPolicy: Delete
+    Properties:
+      CidrBlock: !Ref JenkinsCIDRBlock
+      VpcId:
+        Fn::ImportValue:
+          !Sub "${System}-${Environment}-VPC"
+      AvailabilityZone:
+        Fn::ImportValue:
+          !Sub "${System}-${Environment}-AZ1"
+      Tags:
+        - Key: System
+          Value: !Ref System
+        - Key: Name
+          Value: !Sub "${System}-${Environment}-jenkins"
+  SubnetAZ1RouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DeletionPolicy: Delete
+    Properties:
+      RouteTableId:
+        Fn::ImportValue:
+          !Sub "${System}-${Environment}-PublicRouteTable"
+      SubnetId: !Ref SubnetAZ1
+Outputs:
+  SubnetAZ1:
+    Value: !Ref SubnetAZ1
+    Export: 
+      Name: !Sub "${System}-${Environment}-jenkins-SubnetAZ1"
+  CIDRBlock:
+    Value: !Ref JenkinsCIDRBlock
+    Export: 
+      Name: !Sub "${System}-${Environment}-jenkins-CIDRBlock"
+  AZ1:
+    Value: !GetAtt SubnetAZ1.AvailabilityZone
+    Export: 
+      Name: !Sub "${System}-${Environment}-jenkins-AZ1"

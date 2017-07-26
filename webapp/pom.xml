@@ -19,6 +19,9 @@
 
 	<properties>
 		<java.version>1.8</java.version>
+		<sonar.language>java</sonar.language>
+		<!-- sonar.analysis.mode>preview</sonar.analysis.mode>
+		<sonar.issuesReport.html.enable>true</sonar.issuesReport.html.enable -->
 	</properties>
 
 	<dependencies>
@@ -72,7 +75,22 @@
 					<parallel>methods</parallel>
 					<threadCount>10</threadCount>
 				</configuration>
-			</plugin>		
+			</plugin>
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>sonar-maven-plugin</artifactId>
+				<version>3.3.0.603</version>
+			</plugin>
 		</plugins>
+		<pluginManagement>
+			<plugins>
+			<plugin>
+				<groupId>org.sonarsource.scanner.maven</groupId>
+				<artifactId>sonar-maven-plugin</artifactId>
+				<version>3.3.0.603</version>
+			</plugin>
+			</plugins>
+		</pluginManagement>
 	</build>
+
 </project>
