@@ -30,6 +30,11 @@ The expected 'directory' structure is as follows:
 ```
       <bucket>/cloud-formation/<system>/<environment>/<stack>/<stack-resources>
 ```
+example
+```
+      resourcessecdevops/cloud-formation/SKS/dev/helloworld-app/deploy-app.sh   
+      resourcessecdevops/cloud-formation/SKS/dev/shared/jenkins-app/etc-init.d-jenkins.sh
+```
 
 One of the advantage of taking this structured approach (common parameters, S3 structuring) is
 that not only the application pipeline can be fully automated, the infractructure can easily 
@@ -84,8 +89,9 @@ Repeat these steps passing `dev`, `test`, and `prod` as the parameter values for
    - `ApplicationCIDRBlock`. This CIDR Block must fall within the VPC `CIDRBlock`,
      e.g. `172.27.x.0/24` (where x is 10 for `dev`, 20 for `test` and 30 for `prod`).
 2. Run the cloud-formation stack in [security/hello-world](../cloud-formation/security/helloworld/main.yml)
-   using the listed [policy](../cloud-formation/security/helloworld/default-stack-policy.json)
+   using the listed [policy](../cloud-formation/security/helloworld/default-stack-policy.json) with capabilities --capabilities CAPABILITY_NAMED_IAM
    Pass a value for parameter:
+   - `ProvisioningBucket` The name ofn AWS S3 Bucket you created in the prerequisites. example resourcessecdevops
    - `Environment`. Either `dev`, `test`, or `prod`
    - `VPCCIDRBlock` that matches the earlier value (see common AWS Resources).
    - `PrivilegedCIDRx` (for x=1..5) to enable access to resources on the private 
@@ -94,6 +100,7 @@ Repeat these steps passing `dev`, `test`, and `prod` as the parameter values for
 3. Run the cloud-formation stack in [helloworld/app](../cloud-formation/helloworld/app/main.yml)
    using the listed [policy](../cloud-formation/helloworld/app/default-stack-policy.json)
    Pass a value for parameter:
+   - `ProvisioningBucket` The name ofn AWS S3 Bucket you created in the prerequisites. example resourcessecdevops
    - `Environment`. Either `dev`, `test`, or `prod`.
    - `SecurityContext`. Match the value of `Environment`.
    
@@ -117,8 +124,9 @@ scripts and subsequently configure Jenkins:
 1. Run the cloud-formation script in [network/jenkins](../cloud-formation/network/jenkins)
    using the listed [policy](../cloud-formation/network/jenkins/default-stack-policy.json)
 2. Run the cloud-formation script in [security/jenkins](../cloud-formation/security/jenkins)
-   using the listed [policy](../cloud-formation/security/jenkins/default-stack-policy.json)
+   using the listed [policy](../cloud-formation/security/jenkins/default-stack-policy.json) with capabilities --capabilities CAPABILITY_NAMED_IAM
    Pass a value for parameters:
+   - `ProvisioningBucket` The name ofn AWS S3 Bucket you created in the prerequisites. example resourcessecdevops
    - `PrivilegedCIDRx` (for x=1..5) to enable access to resources on the private Jenkins subnet.
       At least one privileged address is needed to be able to obtain the initial Jenkins
       administrator password.
