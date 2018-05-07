@@ -119,7 +119,7 @@ process:
 
 
 ## How to Install
-[Installation instructions](./doc/Install.md) can be found [here]((./doc/Install.md)).
+[Installation instructions](./doc/Install.md) can be found [here](./doc/Install.md).
 
 
 
@@ -137,3 +137,4 @@ process:
 [SonarQube]: https://www.sonarqube.org/
 [GitHub-Jira Integration]: https://confluence.atlassian.com/adminjiracloud/connect-jira-cloud-to-github-814188429.html
 [Saucelabs]: https://saucelabs.com/
+
